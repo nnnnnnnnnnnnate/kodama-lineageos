@@ -1,0 +1,20 @@
+diff --git a/services/core/java/com/android/server/adb/AdbBroadcastReceiver.java b/services/core/java/com/android/server/adb/AdbBroadcastReceiver.java
+index 7949080fde8f..4ad96a15b84a 100644
+--- a/services/core/java/com/android/server/adb/AdbBroadcastReceiver.java
++++ b/services/core/java/com/android/server/adb/AdbBroadcastReceiver.java
+@@ -70,7 +70,14 @@ public class AdbBroadcastReceiver extends BroadcastReceiver implements AdbNetwor
+ 
+     private void disableWifi(String reason) {
+         Slog.i(TAG, reason);
+-        Settings.Global.putInt(mContentResolver, Settings.Global.ADB_WIFI_ENABLED, 0);
++        /*
++         * Transient Wi-Fi state changes (e.g. the network associating well
++         * after boot on slow-booting devices) must not erase the user's
++         * toggle intent: persisting the disable here zeroes
++         * persist.adb.tls_server.enable on every boot, so wireless
++         * debugging can never survive a reboot. Turning the toggle off
++         * still persists through the settings-observer path.
++         */
+     }
+ 
+     @Override

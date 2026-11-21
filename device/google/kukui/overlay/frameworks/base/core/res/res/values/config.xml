@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Krane has no fixed nav keys. The keyboard cover is optional, so the
+         on-screen bar stays available and Settings can switch it to gestures. -->
+    <bool name="config_showNavigationBar">true</bool>
+
+    <!-- The dock is a full keyboard plus a touchpad. Android 16 already
+         switches the internal display between desktop-first and touch-first
+         when both are present. These gates are what make that path run
+         on the internal panel. -->
+    <bool name="config_isDesktopModeSupported">true</bool>
+    <bool name="config_canInternalDisplayHostDesktops">true</bool>
+    <bool name="config_enterDesktopByDefaultOnFreeformDisplay">true</bool>
+
+    <!-- Closing the keyboard cover reports SW_LID. Sleep on close, wake on
+         open. The framework copies this into Settings.Global.lid_behavior
+         only when that setting is first created. -->
+    <bool name="config_lidControlsSleep">true</bool>
+
+    <!-- Adaptive brightness from the EC ambient light sensor (cros-ec-light,
+         lux, read by the sensors sub-HAL). A room lamp reads about 20 lux.
+         Levels are lux thresholds; the backlight values (0-255) have one
+         more entry than the levels. The user's slider corrections train the
+         curve on top of this. -->
+    <bool name="config_automatic_brightness_available">true</bool>
+    <integer-array name="config_autoBrightnessLevels">
+        <item>2</item>
+        <item>5</item>
+        <item>10</item>
+        <item>20</item>
+        <item>40</item>
+        <item>80</item>
+        <item>150</item>
+        <item>300</item>
+        <item>600</item>
+        <item>1200</item>
+        <item>2500</item>
+        <item>5000</item>
+    </integer-array>
+    <integer-array name="config_autoBrightnessLcdBacklightValues">
+        <item>10</item>
+        <item>18</item>
+        <item>28</item>
+        <item>40</item>
+        <item>55</item>
+        <item>72</item>
+        <item>92</item>
+        <item>115</item>
+        <item>140</item>
+        <item>170</item>
+        <item>205</item>
+        <item>235</item>
+        <item>255</item>
+    </integer-array>
+
+    <!-- The wallpaper is shown zoomed in by this factor and zooms out with
+         the shade and recents. The display planes cannot scale, so at 1.10
+         the wallpaper was always GPU-composited, and with it every layer
+         between it and whatever moved on top. At 1.0 it is 1:1 and can sit
+         on a plane. The zoom animation goes away. -->
+    <item name="config_wallpaperMaxScale" format="float" type="dimen">1.0</item>
+</resources>

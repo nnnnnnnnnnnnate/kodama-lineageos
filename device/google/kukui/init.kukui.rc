@@ -1,0 +1,134 @@
+import /vendor/etc/init/hw/init.mainline.rc
+
+on early-boot
+    # The lineage light HAL runs as system and writes this node. The stock
+    # rc only chowns backlight and panel0-backlight. This panel is
+    # backlight_lcd0, so the node stayed root:root and the slider never
+    # landed. Repeated on boot in case the platform device appears later.
+    chown system system /sys/class/backlight/backlight_lcd0/brightness
+
+on boot
+    chown system system /sys/class/backlight/backlight_lcd0/brightness
+    # ondemand ramps up only at 95% load and does not count I/O wait.
+    # Touch and launch boosts are in the power HAL (power/powerhint.json).
+    write /sys/devices/system/cpu/cpufreq/policy0/ondemand/up_threshold 80
+    write /sys/devices/system/cpu/cpufreq/policy4/ondemand/up_threshold 80
+    write /sys/devices/system/cpu/cpufreq/policy0/ondemand/io_is_busy 1
+    write /sys/devices/system/cpu/cpufreq/policy4/ondemand/io_is_busy 1
+    # Background work on the four Cortex-A53 cores (0-3).
+    write /dev/cpuset/background/cpus 0-3
+    write /dev/cpuset/system-background/cpus 0-3
+    # Name the wakeup source when a suspend is aborted. Needs
+    # CONFIG_PM_SLEEP_DEBUG.
+    write /sys/power/pm_debug_messages 1
+
+on early-init
+    write /sys/module/firmware_class/parameters/path /vendor/firmware
+    # The camera HAL's IPA worker is a vendor binary. The library looks
+    # here before its compiled /vendor/libexec path.
+    export LIBCAMERA_IPA_PROXY_PATH /vendor/bin/libcamera
+    setprop vendor.usb.configfs 0
+    # Apps load vulkan.panfrost.so. The compositor stays on GLES: the
+    # shadow pass on this Mali-G72 already misses 60 Hz.
+    # Mesa hides Bifrost panvk unless this is set. G72 is that generation.
+    export PAN_I_WANT_A_BROKEN_VULKAN_DRIVER 1
+    setprop debug.renderengine.backend skiaglthreaded
+    setprop debug.hwui.renderer skiagl
+    # The panel scans out portrait and the UI is landscape (ORIENTATION_270).
+    # The OVL planes cannot rotate by 90. With the HWUI GL pre-rotation
+    # patch applied, apps render in panel orientation so planes can scan
+    # them out. The compositor stays on GLES.
+    setprop debug.hwui.gl_prerotation true
+    # Shader-cache priming is left at the SurfaceFlinger default. An early
+    # boot aborted on the RenderEngine thread while it primed, so this was
+    # forced off. That was before the current Mesa and this 6.18.28 image.
+    # Desktop window shadows are drawn by the GPU. On Mali-G72 that pass
+    # takes about 24 ms, so a 60 Hz panel presents every other vsync and
+    # the whole screen, including menus, runs at about 30 fps. The panel
+    # has no second refresh rate. Skipping the shadow keeps composition
+    # under a frame.
+    setprop persist.wm.debug.desktop_use_window_shadows false
+
+on init
+    # dlkm_loader starts from a later on-init and reads
+    # /vendor/lib/modules/modules.load. The firmware path has to be set
+    # before ath10k probes. The post-fs insmod block never ran.
+    write /sys/module/firmware_class/parameters/path /vendor/firmware
+
+# prng_seeder starts in early-init and gives up when /dev/hw_random has no
+# source. The source is the Cr50 TPM, loaded from vendor_dlkm afterwards.
+# kukui-ids reads the VPD serial number from the same modules.
+on property:vendor.dlkm.modules.ready=true
+    restart prng_seeder
+    start kukui-ids
+
+on fs
+    # keymint is up before early_hal starts keystore2. userdata is not
+    # metadata-encrypted, so mount_all does not call encryptFstab.
+    start vendor.keymint-default
+    # No --late. These entries are not latemount, so --late mounts nothing
+    # and leaves the empty userdata and metadata partitions unformatted.
+    mount_all /vendor/etc/fstab.${ro.hardware}
+    swapon_all /vendor/etc/fstab.${ro.hardware}
+
+on post-fs
+    # keystore2 is early_hal, which runs before the platform mkdir in
+    # post-fs-data. It aborts when this directory is missing.
+    mkdir /data/misc 01771 system misc
+    mkdir /data/misc/keystore 0700 keystore keystore
+    write /sys/class/vtconsole/vtcon0/bind 0
+    write /sys/class/vtconsole/vtcon1/bind 0
+
+on post-fs-data
+    # FBE is off. tombstoned still only writes here, and the tenth boot
+    # left this directory empty.
+    mkdir /data/tombstones 0775 system system
+    mkdir /data/anr 0775 system system
+    mkdir /data/vendor/wifi 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
+    mkdir /data/vendor/wifi/hostapd 0770 wifi wifi
+    mkdir /data/vendor/wifi/hostapd/sockets 0770 wifi wifi
+    start kukui-usb-suspend
+
+on property:sys.boot_completed=1
+    start kukui-wifi-reprobe
+    start kukui-lid
+    start kukui-ntp-setup
+
+service kukui-usb-suspend /system/bin/sh /vendor/bin/kukui-usb-suspend.sh
+    disabled
+    user root
+    group root system
+    oneshot
+
+# The ramdisk init starts the same script. This service covers a super
+# image that has the script but an older ramdisk. The script's lock
+# directory makes the second start exit.
+service kukui-wifi-reprobe /system/bin/sh /vendor/bin/kukui-wifi-reprobe.sh
+    disabled
+    user root
+    group root
+    oneshot
+
+# Existing data partitions already stored lid_behavior=0. The overlay
+# default applies only when settings are created.
+service kukui-lid /system/bin/sh /vendor/bin/kukui-lid.sh
+    disabled
+    user root
+    group root system
+    oneshot
+
+# Serial number from the VPD and the board revision from coreboot.
+# Needs vpd-sysfs, so it waits for the modules.
+service kukui-ids /system/bin/sh /vendor/bin/kukui-ids.sh
+    disabled
+    user root
+    group root system
+    oneshot
+
+service kukui-ntp-setup /system/bin/sh /vendor/bin/kukui-ntp-setup.sh
+    disabled
+    user root
+    group root system
+    oneshot

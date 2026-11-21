@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title">USB sleep power</string>
+    <string name="summary">Whether sleep turns USB power off</string>
+    <string name="switch_label">Turn USB power off during sleep</string>
+    <string name="detail">When this is off, the USB host stays powered during sleep, so a system started from a USB disk can continue the same boot after waking. When this is on, sleep turns the USB port and PHY off. If the system disk is on that USB port, its light goes out and that boot cannot continue after wake.</string>
+    <string name="missing">This kernel has no suspend_power_off node. A kernel that includes the switch has to be written before this can be changed.</string>
+    <string name="write_failed">The setting was not saved. The switch is back to its previous state.</string>
+</resources>
