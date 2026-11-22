@@ -146,6 +146,11 @@ credentials, or an IP address in the tree.
 ## Known limitations
 
 - Camera not supported (see above).
+- The 3.5mm headphone jack is not supported: the jack is detected (TS3A227E
+  input events), but the AIDL audio policy does not route to the wired
+  headset port (the APM never calls `connectExternalDevice`). Manual
+  tinymix routing works. Do NOT add the wired ports to `attachedDevices`:
+  it hangs the boot.
 - External display not implemented.
 - SELinux is permissive.
 - Charger behavior above 5 V was not tested.
@@ -153,3 +158,5 @@ credentials, or an IP address in the tree.
   panels or touch controllers.
 - Wired USB adb/MTP is not implemented; the USB controller stays in
   host mode for USB boot. Use wireless adb.
+- USB mass storage is not auto-mounted (the `voldmanaged=usb:auto` entry was
+  removed to keep the eMMC installer working); mount manually.
